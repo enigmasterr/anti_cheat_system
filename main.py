@@ -1,10 +1,12 @@
+import datetime
 import requests
 import pprint
 import time
 import hashlib
-from data import key, secret
+from data import key, secret, randnum
 import os
 from zipfile import ZipFile
+
 
 def get_submissions_from_directory(path): # function to get submissions from directory
     subs = {}
@@ -17,7 +19,7 @@ def get_submissions_from_directory(path): # function to get submissions from dir
 
 
 def turnNoSpace(txt):
-    return ''.join(txt.split())
+    return ''.join(map(str.strip, txt.split()))
 
 
 def get_submissions_zip(fname): # get submissions from zip-archive
@@ -32,38 +34,51 @@ def get_submissions_zip(fname): # get submissions from zip-archive
 
 def show_stats_one_user(user_name):
     stat = get_stats_one_user(user_name)
-    print(f'Stats for user "{user_name}"')
+    answer = []
+    max_len = 0
     for el in stat:
-        print(f'Task {el[0]}\t', end='')
-    print()
-    for el in stat:
-        print(f'{el[1] // 3600}:{el[1] % 3600 // 60}\t', end='')
-    print()
-    print('0\t', end='')
+        answer.append([f'Task {el[0]}', f'{el[1] // 3600}:{el[1] % 3600 // 60}', '0'])
+        max_len = max(max_len, len(f'Task {el[0]}'), len(f'{el[1] // 3600}:{el[1] % 3600 // 60}'))
     for i in range(1, len(stat)):
         t = stat[i][1] - stat[i - 1][1]
-        print(f'{t // 3600}h:{t % 3600 //60}m\t', end='')
-    print()
-    print('-' * 100)
+        answer[i][2] = f'{t // 3600}h:{t % 3600 //60}m'
+        max_len = max(max_len, len(answer[i][2]))
+    print(f'Stats for user "{user_name}"')
+    print(' - ' * 40)
+    for i in range(3):
+        for elem in answer:
+            el = elem[i]
+            print(el + ' ' * (max_len - len(el) + 2), end='')
+        print()
+    print(' - ' * 40)
 
 
 def show_solved_tasks_all():
     global data_from_contest
     solved_tasks = []
+    max_len_user = 0
+    print('Number of solved tasks')
+    print('- ' * 20)
     for key, val in data_from_contest.items():
-        solved_tasks.append((key, len(val)))
+        tasks = set()
+        max_len_user = max(max_len_user, len(key))
+        for subs in val:
+            tasks.add(subs['problemInd'])
+        solved_tasks.append((key, len(tasks)))
     for elem in sorted(solved_tasks, key=lambda el: el[1]):
-        print(f"{elem[0]} - solved tasks {elem[1]}")
+        print(f"{elem[0]}{(max_len_user - len(elem[0])) * ' '} - solved tasks {elem[1]}")
+    print('- ' * 20)
+    print(' ' * (max_len_user + 1) + '* * *' + '\n')
 
 
 def get_data_from_contest(contestId):
     subms = get_submissions_zip(str(contestId) + '.zip')
     apiMethod = 'contest.status'
     _time = int(time.time())
-    hApiSig = f"123456/{apiMethod}?apiKey={key}&asManager=true&contestId={contId}&time={_time}#{secret}"
+    hApiSig = f"{randnum}/{apiMethod}?apiKey={key}&asManager=true&contestId={contId}&time={_time}#{secret}"
     hash_d = hashlib.sha512(hApiSig.encode())
     hash_hex = hash_d.hexdigest()
-    Que = f'https://codeforces.com/api/{apiMethod}?apiKey={key}&asManager=true&contestId={contId}&time={_time}&apiSig=123456{hash_hex}'
+    Que = f'https://codeforces.com/api/{apiMethod}?apiKey={key}&asManager=true&contestId={contId}&time={_time}&apiSig={randnum}{hash_hex}'
     query = requests.get(Que)
     attempts = query.json()['result']
     studs = dict()
@@ -73,6 +88,7 @@ def get_data_from_contest(contestId):
                    'timePassed': attempt['relativeTimeSeconds'],
                    'problemInd': attempt['problem']['index'],
                    'problemName': attempt['problem']['name'],
+                   'creationTime': attempt['creationTimeSeconds'],
                    'submText': ''
                    }
         if str(problem['submId']) in subms:
@@ -108,53 +124,60 @@ def get_stats_one_user(user_name):
 
 def compare_subs_one_user(user_name):
     global data_from_contest
-    cur_stud = data_from_contest[user_name]
     dict_user = {}
     cheat_ans = {}
-    for subm in cur_stud:
-        dict_user[subm['problemInd']] = subm['submText']
+    for user, subs in data_from_contest.items():
+        cur_sub = {}
+        for subm in subs:
+            cur_sub[subm['problemInd']] = (subm['submText'], subm['timePassed'])
+        dict_user[user] = cur_sub
+    for task, pair in dict_user[user_name].items():
+        prog = pair[0]
+        min_time = pair[1]
+        verdict = 'Not cheat'
+        for user, val in dict_user.items():
+            if user == user_name:
+                continue
+            if task not in val:
+                continue
+            prog_oth = val[task][0]
+            _time_oth = val[task][1]
+            if prog == prog_oth and min_time > _time_oth:
+                verdict = user
+        cheat_ans[task] = verdict
+    ans = []
+    max_len = 0
+    for key, val in cheat_ans.items():
+        max_len = max(max_len, len(key), len(val))
+        ans.append((key, val))
+    ans.sort(key=lambda el: el[0])
+    print(f'Cheat answer for user {user_name}')
+    for el in ans:
+        print(f'{el[0]}:  {el[1]}')
+    print('- ' * 20)
 
-    for user, data in data_from_contest.items():
-        if user == user_name:
-            continue
-        prog = data['submText']
-        ind = data['problemInd']
+
+def submissions_history(user_name):
+    global data_from_contest
+    subs = data_from_contest[user_name]
+    subslist = []
+    for sub in subs:
+        subslist.append((sub['problemInd'], sub['creationTime']))
+    subslist.sort(key=lambda el: el[1])
+    print(f'Submission history for user {user_name}')
+    for elem in subslist:
+        print(f'{elem[0]}:', end='\t')
+        timest = datetime.datetime.fromtimestamp(elem[1])
+        print(timest.strftime('%m-%d, %H:%M'))
+    print('- ' * 20)
 
 
-
-contId = 553068
+contId = 559532
 contests7a = [551176, 553068, 558938]
-# subms = get_submissions(str(contId))
-# subms = get_submissions_zip(str(contId) + '.zip')
-# pprint.pprint(subms)
-# apiMethod = 'contest.status'
-# _time = int(time.time())
-# hApiSig = f"123456/{apiMethod}?apiKey={key}&asManager=true&contestId={contId}&time={_time}#{secret}"
-# hash_d = hashlib.sha512(hApiSig.encode())
-# hash_hex = hash_d.hexdigest()
-# Que = f'https://codeforces.com/api/{apiMethod}?apiKey={key}&asManager=true&contestId={contId}&time={_time}&apiSig=123456{hash_hex}'
-# query = requests.get(Que)
-# attempts = query.json()['result']
-# print(len(query.json()['result']))
-# pprint.pprint(query.json()['result'][0])
-# # pprint.pprint(query.json()['result'][0]['author']['members'][0]['handle'])
-# studs = dict()
-# for attempt in attempts:
-#     handle = attempt['author']['members'][0]['handle']
-#     problem = {'submId': attempt['id'],
-#                'timePassed': attempt['relativeTimeSeconds'],
-#                'problemInd': attempt['problem']['index'],
-#                'problemName': attempt['problem']['name'],
-#                'submText': ''
-#                }
-#     if str(problem['submId']) in subms:
-#         problem['submText'] = subms[str(problem['submId'])]
-#     if attempt['verdict'] == 'OK':
-#         if handle not in studs:
-#             studs[handle] = []
-#         studs[handle].append(problem)
 
 data_from_contest = get_data_from_contest(contId)
-# pprint.pprint(data_from_contest)
-#show_solved_tasks_all()
-show_stats_one_user_many_contests('NikitaAra', contests7a)
+show_solved_tasks_all()
+show_stats_all_users()
+# show_stats_one_user_many_contests('NikitaAra', contests7a)
+compare_subs_one_user('Xieanney')
+submissions_history('Xieanney')
