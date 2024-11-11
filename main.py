@@ -41,7 +41,7 @@ def show_stats_one_user(user_name):
         max_len = max(max_len, len(f'Task {el[0]}'), len(f'{el[1] // 3600}:{el[1] % 3600 // 60}'))
     for i in range(1, len(stat)):
         t = stat[i][1] - stat[i - 1][1]
-        answer[i][2] = f'{t // 3600}h:{t % 3600 //60}m'
+        answer[i][2] = f'{t // 3600}h:{t % 3600 // 60}m'
         max_len = max(max_len, len(answer[i][2]))
     print(f'Stats for user "{user_name}"')
     print(' - ' * 40)
