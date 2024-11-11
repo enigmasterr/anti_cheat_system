@@ -66,7 +66,7 @@ def show_solved_tasks_all():
             tasks.add(subs['problemInd'])
         solved_tasks.append((key, len(tasks)))
     for elem in sorted(solved_tasks, key=lambda el: el[1]):
-        print(f"{elem[0]}{(max_len_user - len(elem[0])) * ' '} - solved tasks {elem[1]}")
+        print(f'"{elem[0]}"{(max_len_user - len(elem[0])) * " "} - solved tasks {elem[1]}')
     print('- ' * 20)
     print(' ' * (max_len_user + 1) + '* * *' + '\n')
 
@@ -151,7 +151,7 @@ def compare_subs_one_user(user_name):
         max_len = max(max_len, len(key), len(val))
         ans.append((key, val))
     ans.sort(key=lambda el: el[0])
-    print(f'Cheat answer for user {user_name}')
+    print(f'Cheat answer for user "{user_name}"')
     for el in ans:
         print(f'{el[0]}:  {el[1]}')
     print('- ' * 20)
@@ -164,7 +164,7 @@ def submissions_history(user_name):
     for sub in subs:
         subslist.append((sub['problemInd'], sub['creationTime']))
     subslist.sort(key=lambda el: el[1])
-    print(f'Submission history for user {user_name}')
+    print(f'Submission history for user "{user_name}"')
     for elem in subslist:
         print(f'{elem[0]}:', end='\t')
         timest = datetime.datetime.fromtimestamp(elem[1])
@@ -178,6 +178,7 @@ contests7a = [551176, 553068, 558938]
 data_from_contest = get_data_from_contest(contId)
 show_solved_tasks_all()
 show_stats_all_users()
+show_stats_one_user('Abobamarik')
 # show_stats_one_user_many_contests('NikitaAra', contests7a)
-compare_subs_one_user('Xieanney')
-submissions_history('Xieanney')
+compare_subs_one_user('Abobamarik')
+submissions_history('Abobamarik')
